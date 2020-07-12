@@ -15,4 +15,5 @@ To Do List:
   add support for more image hosts.
   add support for handling VG threads.
   add facial recognition for automatic image sorting
+  figure out how to add TQDM progress bars.
   
