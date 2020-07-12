@@ -1,0 +1,64 @@
+# -*- coding: utf-8 -*-
+# 0Display a list of folder in the current working directory
+# from that, return the true path of the item selected from the list
+# displayed in the pop up window.  The pop up window closes when the selection
+# is confirmed.
+
+from tkinter import *
+from os import *
+from imx import *
+
+var1 = StringVar()
+  
+# create a root window. 
+top = Tk() 
+top.configure(background="#9ea1a8")
+top.iconbitmap('')
+top.title('Choose Folder')
+def get_width():
+    retVal = 0
+    for item in os.listdir():
+        if path.isdir(item) and len(item) > retVal:
+            retVal = len(item)
+    return retVal  
+
+# create listbox object 
+listbox = Listbox(top, height = 10,  
+                  width = get_width(),  
+                  bg = "#b7bcc4", 
+                  activestyle = 'dotbox',  
+                  font = "Helvetica", 
+                  fg = "#616366",
+                  selectbackground = "#8992a2",
+                  selectborderwidth = 0,
+                  selectmode = SINGLE) 
+
+
+  
+# Define the size of the window. 
+top.geometry(f"200x300")   
+  
+# Define a label for the list.   
+label = Label(top, text = "Select Folder", bg = "#9ea1a8", fg = "#d0d5db")  
+ 
+for i, j in enumerate(listdir()):
+    if path.isdir(j):
+        listbox.insert(i,j)
+ 
+# pack the widgets 
+label.pack() 
+listbox.pack() 
+  
+
+def print_selection():
+    value = listbox.get(listbox.curselection())   
+    var1.set(value)
+    print(path.realpath(value))
+    top.destroy()
+    
+    
+b1 = Button(top, text='Print selection', width=15, height=2, command=print_selection, bg = "#7f8287", fg = "#d0d5db")
+b1.pack()
+# Display untill User  
+# exits themselves. 
+top.mainloop() 
