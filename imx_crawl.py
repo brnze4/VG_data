@@ -4,6 +4,7 @@ import time
 from random import randrange as random
 from concurrent.futures import ThreadPoolExecutor
 from tkinter import filedialog
+from tqdm import tqdm
 import tkinter
 import requests
 from bs4 import BeautifulSoup
@@ -16,14 +17,23 @@ class imx_crawl:
     
     def __init__(self, url, rootPath, executor = None):
         self.exe = executor
+        # print('exe')
         self.rootPath = rootPath
+        # print(self.rootPath)
         self.crawl_path = '\\'.join([self.rootPath, 'crawl'])
+        # print(self.crawl_path)
         self.start_url = url.replace('u/t', 'i')
+        # print(self.start_url)
         self.make_crawl_root()
+        # print(self.crawl_root)
         self.create_reference_list()
+        # print('ref list')
         self.create_crawl_list_to_search()
+        # print(self.crawl_search_list[0:10])
         self.crawl_path = '\\'.join([self.crawl_path, self.crawl_search_list[0].split('/')[-1].split('.')[0]])
+        # print(self.crawl_path)
         self.make_directory()
+        # print(os.path.exists(self.crawl_path))
         self.crawl_with_threads()
         
     def make_directory(self):
@@ -58,29 +68,27 @@ class imx_crawl:
     def crawl_with_threads(self):
         with open(self.crawl_path+'\\'+ 'source.txt', 'w') as f:
                   f.write(self.start_url)
-        print(self.create_crawl_list_to_search)
-        if self.exe == None:
-            print('missing executor')
-            with ThreadPoolExecutor(max_workers = 10) as self.exe:
-                self.exe_results = [self.exe.submit(Imx_download, url, self.crawl_path) for url in self.crawl_search_list[0:10]]
-        else:
-            self.exe_results = [self.exe.submit(Imx_download, url, self.crawl_path) for url in self.crawl_search_list[0:10]]
+        print(self.crawl_search_list)
+        self.exe_results = [self.exe.submit(Imx_download, url, self.crawl_path) for url in tqdm(self.crawl_search_list[150:])]
    
 class Imx_download:
     def __init__(self, url, path):
+        # print(f'dl {url}')
         self.url = url
         self.path = path
         self.index = self.url.split('/')[-1]
         self.file_path = '\\'.join([self.path, self.index])
+        # print('opening page')
         self.page = open_webpage(self.url)
+        # print(f'started {url}\t {path}\tResponse: {self.page.response}')
         # self.data = self.page.image if self.page.good_response else ''
         # print(self.url, self.path, self.file_path, self.page.response, self.index)
         self.save_image()
         
     def save_image(self):
         retVal = 'Bad Image'
+        # print(len(self.page.response.content))
         if self.page.good_response:
-            # if len(self.page.response.content) > 8000: 
             with open(self.file_path, 'wb') as fb:
                       fb.write(self.page.response.content)
             retVal == 'Saved'
@@ -98,12 +106,15 @@ class open_webpage:
         self.soup = BeautifulSoup(self.response.text, 'html.parser') if self.good_response else None
         
     def check_response_code(self):
+        sleep = 30/random(10,100)
         self.good_response = False
         if self.response.status_code == 503:
-            sleep = random(1,7)
             time.sleep(sleep)
             print(f'Server Error {self.response.status_code}: Attempting to load gallery {self.url} again in {sleep} seconds.')
-            self.make_soup()
+            self.get_content()
+        elif self.response.status_code == 404:
+            print(f'404, sleeping {sleep} seconds')
+            time.sleep(sleep)
         elif self.response.status_code >= 400 and self.response.status_code < 500:
             if self.soup == None:
                 print(f'Error: IMX gallery {self.url} responsed {self.response.status_code}, gallery not retreived.')
@@ -120,6 +131,7 @@ class open_webpage:
 
     def get_content(self):
         self.load_gallery_page()
+        # print(f'response: {self.response}')
         if self.check_response_code():
             self.image = self.response.content
 # class download_path():
@@ -151,7 +163,7 @@ class open_webpage:
 
 if __name__ == '__main__':
     url = input('URL: ')
-    exe = ThreadPoolExecutor(max_workers=15)
+    exe = ThreadPoolExecutor(max_workers=5)
     rootPath = 'z:\\Pictures'
     dl = imx_crawl(url, rootPath, exe)
-    exe.shutdown()
+    exe.shutdown(wait = True)
