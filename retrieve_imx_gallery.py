@@ -71,10 +71,12 @@ class retrieve_imx_gallery():
             self.url = url
             self.galleryID = self.url.split('/')[-1]
             
-    def check_executor(self):
-        if self.exe == None:
+    def check_executor(self, executor):
+        if executor == None:
             self.exe = ThreadPoolExecutor(max_workers = 10)
-    
+        else:
+            self.exe = executor
+            
     def set_path(self):
         self.path = download_path(self.rootPath, self.galleryID).do_it()
         
@@ -85,15 +87,24 @@ class retrieve_imx_gallery():
         if self.good_response:
             self.make_soup_object()
             self.make_list_of_images()
+            # print(self.list_of_images[0:3])
             self.get_full_length_lead_in()
+            print(self.full_length_lead_in)
             self.alter_list_of_images()
+            # print(self.list_of_images[0:3])
             self.path = download_path(self.rootPath, self.galleryID)
-            self.exe_results = [self.exe.submit(Imx_download, url, index+1, self.path.save_path+'\\'+self.galleryID) for index, url in enumerate(self.list_of_images)]
+            # print(self.path.save_path)
+            # print(type(self.exe))
+            go_on = ''
+            if go_on == '' or go_on == '\n':
+                self.exe_results = [self.exe.submit(Imx_download, url, index+1, self.path.save_path) for index, url in enumerate(self.list_of_images)]
             
 class open_webpage:
-    def __init__(self, url):
+    def __init__(self, url, check_soup = True):
         self.url = url
+        self.check_make_soup = check_soup
         self.make_soup()
+        
             
     def load_gallery_page(self):
         self.response = requests.get(self.url)
@@ -102,11 +113,15 @@ class open_webpage:
         self.soup = BeautifulSoup(self.response.text, 'html.parser') if self.good_response else None
         
     def check_response_code(self):
+        sleep = 50/random(10,100)
         self.good_response = False
         if self.response.status_code == 503:
-            print(f'Server Error {self.response.status_code}: Attempting to load gallery {self.galleryID} again.')
-            time.sleep(random(1,7))
+            time.sleep(sleep)
+            print(f'Server Error {self.response.status_code}: Attempting to load gallery {self.url} again in {sleep} seconds.')
             self.make_soup()
+        elif self.response.status_code == 404:
+            print(f'404, sleeping {sleep} seconds')
+            time.sleep(sleep)
         elif self.response.status_code >= 400 and self.response.status_code < 500:
             if self.soup == None:
                 print(f'Error: IMX gallery {self.galleryID} responsed {self.response.status_code}, gallery not retreived.')
@@ -118,18 +133,19 @@ class open_webpage:
     
     def make_soup(self):
        self.load_gallery_page()
-       if self.check_response_code():
+       if self.check_response_code() and self.check_make_soup:
           self.make_soup_object()
        
           
 
 class Imx_download:
     def __init__(self, url, index, path):
+        print(f'started picture {index} class')
         self.url = url
         self.path = path
         self.index = str(index)
         self.file_path = '\\'.join([self.path, self.index+'.jpg'])
-        self.page = open_webpage(self.url)
+        self.page = open_webpage(self.url, False)
         self.data = self.page.response.content if self.page.good_response else ''
         # print(self.url, self.path, self.file_path, self.page.response)
         self.save_image()
@@ -137,6 +153,7 @@ class Imx_download:
         
         
     def save_image(self):
+        print(self.url, self.path, self.file_path)
         with open(self.file_path, 'wb') as fb: 
                 fb.write(self.data) 
         return 'Saved'
@@ -155,25 +172,33 @@ class download_path():
         root = tkinter.Tk()
         self.save_path = filedialog.askdirectory().replace('/', '\\')
         self.folder = os.path.split(self.save_path)[-1]
+        # print(f'Folder: {self.folder}')
         root.destroy()
     
     def create_path(self):
         if not os.path.exists(f'{self.save_path}\\{self.galleryID}'):
             try:
                 os.makedirs(f'{self.save_path}\\{self.galleryID}')
-                self.save_path = f'{self.save_path}\\{self.galleryID}'
             except:
                 print(f'Failed to make path {self.save_path}\\{self.galleryID}\nExiting')
                 raise SystemExit
+        self.save_path += '\\'+self.galleryID
+        print(f'download_path: {self.save_path}')
+        # if input('continue? ') != '':
+        #     raise SystemExit
                 
     def do_it(self):
         self.get_parent_folder()
         self.create_path()
-            
         
 if __name__ == '__main__':
    
     url = input('Gallery: ')
-    rootPath = 'z:\\Pictures'
-    with ThreadPoolExecutor(max_workers = 15) as executor:
-        gal = retrieve_imx_gallery(url, rootPath, executor)
+    root = tkinter.Tk()
+    rootPath = filedialog.askdirectory().replace('/', '\\')
+    root.destroy()
+    print(rootPath)
+    keep_going = ''
+    if keep_going != '' or keep_going != '\n':
+        with ThreadPoolExecutor(max_workers = 5) as executor:
+            gal = retrieve_imx_gallery(url, rootPath, executor)
