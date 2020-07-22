@@ -18,10 +18,12 @@ class retrieve_imx_gallery():
         self.url = f'https://imx.to/g/{galleryID}'
         self.exe = executor
         self.rootPath = rootPath
+        self.galleryTitle = None
         self.do_it()
               
     def load_gallery_page(self):
         self.response = requests.get(self.url)
+        self.check_response_code()
         
     def check_galleryID_valid(self):
         if len(self.galleryID) >= 2 and len(self.galleryID) <= 4:
@@ -30,6 +32,8 @@ class retrieve_imx_gallery():
             
     def make_soup_object(self):
         self.soup = BeautifulSoup(self.response.text, 'html.parser') if self.good_response else None
+        self.galleryTitle = self.soup.title.text.split('/')[-1].strip()
+        self.folderTitle = self.galleryTitle + ' ' + self.galleryID.upper()
         
     def make_list_of_images(self):
         self.list_of_images = [item.get('src') for 
@@ -43,7 +47,7 @@ class retrieve_imx_gallery():
         if self.response.status_code == 503:
             print(f'Server Error {self.response.status_code}: Attempting to load gallery {self.galleryID} again.')
             time.sleep(random(1,7))
-            self.save_preview_image()
+            self.load_gallery_page()
         elif self.response.status_code >= 400 and self.response.status_code < 500:
             if self.soup == None:
                 print(f'Error: IMX gallery {self.galleryID} responsed {self.response.status_code}, gallery not retreived.')
@@ -61,8 +65,12 @@ class retrieve_imx_gallery():
     def get_full_length_lead_in(self):
         self.url = self.list_of_images[0]
         self.load_gallery_page()
-        self.full_length_lead_in = '/'.join(self.response.url.split('/')[0:-1]).replace('/t/', '/i/')+'/'
-    
+        if self.response.url.find('t.imx') == -1:
+            self.full_length_lead_in = '/'.join(self.response.url.split('/')[0:-1]).replace('/t/', '/i/')+'/'
+        else:
+            self.full_length_lead_in = '/'.join(self.response.url.split('/')[0:-1]).replace('/t/', '/i/')+'/'
+            self.full_length_lead_in = self.full_length_lead_in.replace('t.imx', 'i.imx')
+        
     def alter_list_of_images(self):
         self.list_of_images = [self.full_length_lead_in + item.split('/')[-1] for item in self.list_of_images]
     
@@ -92,7 +100,7 @@ class retrieve_imx_gallery():
             print(self.full_length_lead_in)
             self.alter_list_of_images()
             # print(self.list_of_images[0:3])
-            self.path = download_path(self.rootPath, self.galleryID)
+            self.path = download_path(self.rootPath, self.folderTitle)
             # print(self.path.save_path)
             # print(type(self.exe))
             go_on = ''
@@ -163,17 +171,33 @@ class Imx_download:
 class download_path():
     def __init__(self, rootPath, galleryID): #rootPath should be like z:\Pictures
         self.rootPath = rootPath
-        self.galleryID = galleryID.upper()
+        self.galleryID = galleryID
         self.save_path = ''
         self.folder = ''
         self.do_it()
-        
+                
+    def new_make_path(self):
+        self.get_parent_folder()
+        try:
+            os.makedirs(self.save_path)
+        except FileExistsError:
+            pass
+        except:
+            print('Something went wrong with the save path, quitting.')
+            raise SystemExit
+            
     def get_parent_folder(self):
         root = tkinter.Tk()
         self.save_path = filedialog.askdirectory().replace('/', '\\')
+        self.save_path += f'\\{self.galleryID}'
         self.folder = os.path.split(self.save_path)[-1]
         # print(f'Folder: {self.folder}')
         root.destroy()
+        
+    def do_it(self):
+        # self.get_parent_folder()
+        # self.create_path()
+        self.new_make_path()
     
     def create_path(self):
         if not os.path.exists(f'{self.save_path}\\{self.galleryID}'):
@@ -186,19 +210,19 @@ class download_path():
         print(f'download_path: {self.save_path}')
         # if input('continue? ') != '':
         #     raise SystemExit
-                
-    def do_it(self):
-        self.get_parent_folder()
-        self.create_path()
         
 if __name__ == '__main__':
    
-    url = input('Gallery: ')
-    root = tkinter.Tk()
-    rootPath = filedialog.askdirectory().replace('/', '\\')
-    root.destroy()
-    print(rootPath)
+    urls = input('Gallery (Separate multiple galleries with \" , \"): ')
+    urls = [item.strip() for item in urls.split(',')]
+    
+    # root = tkinter.Tk()
+    # rootPath = filedialog.askdirectory().replace('/', '\\')
+    # root.destroy()
+    # print(rootPath)
+    rootPath = None
     keep_going = ''
     if keep_going != '' or keep_going != '\n':
         with ThreadPoolExecutor(max_workers = 5) as executor:
-            gal = retrieve_imx_gallery(url, rootPath, executor)
+            for url in urls:
+                gal= retrieve_imx_gallery(url, rootPath, executor)
